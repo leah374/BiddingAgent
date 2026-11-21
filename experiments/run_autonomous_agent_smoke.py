@@ -17,10 +17,10 @@ from autobid_agent.client import JSONClient
 from autobid_agent.auctionnet import AutonomousAuctionNetStrategy, IsolatedBCQBaseline
 from autobid_agent.contracts import TOOLS
 from autobid_agent.memory import ExperienceStore, fingerprint, write_json
-import run_auctionnet_agent_vs_gave_episode as experiment
+from compat import run_auctionnet_agent_vs_gave_episode as experiment
 import torch
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def asset_manifest():
@@ -105,7 +105,7 @@ def main():
     client = JSONClient(args.llm_model, max_requests=args.max_requests, proxy=args.proxy)
     official_assets = asset_manifest()
     source_files = sorted((ROOT / "autobid_agent").rglob("*.py")) + sorted((ROOT / "autobid_agent").rglob("SKILL.md"))
-    source_files += [Path(__file__), ROOT / "run_auctionnet_agent_vs_gave_episode.py"]
+    source_files += [Path(__file__), ROOT / "compat" / "run_auctionnet_agent_vs_gave_episode.py"]
     source_hashes = {str(path.relative_to(ROOT)): experiment.sha256_file(path) for path in source_files}
     environment_spec = dict(official_commit=experiment.official_commit(), assets=official_assets,
                             pv_num=args.pv_num, pv_generator="neuripsPvGen", pvalue_mean_base=.0005,

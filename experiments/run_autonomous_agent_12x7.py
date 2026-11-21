@@ -33,12 +33,12 @@ import torch
 from autobid_agent.auctionnet import AutonomousAuctionNetStrategy, isolated_rng
 from autobid_agent.contracts import TOOLS
 from autobid_agent.memory import ExperienceStore, fingerprint, write_json
-import run_auctionnet_agent_vs_gave_episode as experiment
-import run_auctionnet_official_baselines as baselines
-from run_autonomous_agent_smoke import asset_manifest, audit_strategy
+from compat import run_auctionnet_agent_vs_gave_episode as experiment
+from compat import run_auctionnet_official_baselines as baselines
+from experiments.run_autonomous_agent_smoke import asset_manifest, audit_strategy
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "outputs" / "autonomous_12x7_20261116_v6_qwen37plus"
 ACQUISITION_EPISODE = 0
 EVALUATION_EPISODES = tuple(range(1, 7))
@@ -320,8 +320,8 @@ def main() -> None:
     assets = asset_manifest()
     source_files = (sorted((ROOT / "autobid_agent").rglob("*.py")) +
                     sorted((ROOT / "autobid_agent").rglob("SKILL.md")) +
-                    [Path(__file__), ROOT / "run_auctionnet_agent_vs_gave_episode.py",
-                     ROOT / "run_auctionnet_official_baselines.py"])
+                    [Path(__file__), ROOT / "compat" / "run_auctionnet_agent_vs_gave_episode.py",
+                     ROOT / "compat" / "run_auctionnet_official_baselines.py"])
     source_hashes = {str(path.relative_to(ROOT)): experiment.sha256_file(path)
                      for path in source_files}
     environment_spec = {

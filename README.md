@@ -1,44 +1,58 @@
-# AuctionNet 四算法竞价 Agent
+# AuctionNet Bidding Agent
 
-当前可复现的方案：每个广告主在 AuctionNet 官方 48 步环境运行 Episode 0（冷启动并生成经验卡）和 Episode 1（使用冻结的上一轮经验）。每个 Episode 比较 Agent 与官方 BCQ、OnlineLP、IQL、MOPO 四个基线。Agent 每步分析市场价值、预算和经验，调用四个算法并融合出价，经过护栏后交给官方环境执行。每四步生成一张经验卡。
+这是一个在 AuctionNet 连续竞价环境中运行的竞价 Agent。它每个决策步读取当前广告主可见的状态和已发生的反馈，分析市场、预算与历史经验，取得四个官方算法的候选出价，再由 LLM 综合为一个出价向量。最终动作经过护栏后交给官方模拟器执行。
 
-## 本仓库包含
+当前实现使用官方 **BCQ、OnlineLP、IQL、MOPO** 作为算法工具；其余广告主沿用 AuctionNet 官方策略和模型权重。Agent 的目标是官方 `beta=2` score，预算利用率只是诊断信息。
 
-- `autobid_agent/`：Agent、四个工具适配、三项分析 skill、记忆、模型客户端及出价约束。
-- `run_autonomous_agent_48x2.py`：当前 48 广告主 × 2 Episode × 5 策略实验入口；可以从空输出目录运行，也可以续跑本仓库自己生成的完成标记。
-- `run_autonomous_agent_12x7.py`、`run_autonomous_agent_smoke.py`、`run_auctionnet_agent_vs_gave_episode.py`、`run_auctionnet_official_baselines.py`、`bidding_agent_demo_v2.py`：当前入口所需的实验、官方策略适配及 KB 查询代码。后两个文件含旧 GAVE 实验实现，但本实验入口不加载 GAVE 权重。
-- `cache/experience_kb_v1_3fa1b08629.sqlite`：先前从历史训练轨迹聚合的 KB；当前实验默认使用它，不含原始大体量竞价数据。
-- `tests/test_autonomous_agent.py`：Agent 核心行为测试。
-- `AUTONOMOUS_AGENT.md`：架构、护栏、记忆和 trace 说明。
+## Agent 结构
 
-## 本仓库外的官方依赖
+```mermaid
+flowchart TD
+    E[官方 AuctionNet 环境<br/>当前可见 state + 历史反馈] --> S[状态整理]
+    K[(历史聚合 KB)] --> S
+    S --> A[三项分析 skill<br/>市场价值 · 预算控制 · 经验审阅]
+    M[(短期记忆<br/>最近 4 步真实决策和反馈)] --> A
+    L[(长期记忆<br/>本轮开始时冻结的经验原则)] --> A
+    A --> C[决策上下文<br/>原始 state + 分析 JSON + 记忆 + 短期计划]
+    S --> T[四个官方算法工具<br/>BCQ · OnlineLP · IQL · MOPO]
+    T --> C
+    C --> D[LLM 主决策<br/>四专家权重 + 整体 scale + 4 段系数 + 计划]
+    D --> G[护栏<br/>校验权重、CPA 风险、出价和预算]
+    G --> B[唯一的最终 bid 向量]
+    B --> E
+    E --> F[记录真实结果和 trace]
+    F --> M
+    F --> R{累计 4 个已反馈步骤?}
+    R -- 是 --> X[反思并生成经验卡<br/>有效做法与风险警示]
+    X --> P[(经验原则库)]
+    P -- 下一轮开始时快照 --> L
+```
 
-在仓库根目录运行 `./setup_auctionnet.ps1`。脚本克隆 [AuctionNet 官方仓库](https://github.com/alimama-tech/AuctionNet)，固定到 `c20de631a40e24669d1d6a8e2acefd8f492f172d`，并检查官方模型权重。官方代码和 48 个广告主使用的模型均从该仓库取得，不用自制线性模型替代。`third_party/AuctionNet/` 被 Git 忽略。
+每一步都会调用三项分析 skill。它们在一次 LLM 请求中分别给出自然语言结论与结构化 JSON；数值指标由程序附加。四个官方算法各自根据同一份真实历史产生候选 bid。主 LLM 给四个候选分配权重，并可在限定范围内调整整体价格和四个 `pValue` 分段的价格，因此最终出价是逐 PV 融合后的结果。
 
-使用 Python 3.9 环境，先安装官方 `third_party/AuctionNet/requirements.txt` 中兼容的包，以及本实验所需的 `openai`。本地原实验使用 `.conda/auctionnet/python.exe`。PyTorch 等依赖应按机器系统和 CUDA/CPU 情况安装。
+短期记忆保存最近四步的实际动作与反馈，短期计划最多覆盖当前起四步并在每步重估。每四步产生一张广告主专属经验卡，保留正向建议和风险警示；本轮形成的原则要到下一轮才可检索，防止用尚未完成的经验影响同一轮。经验卡记录的是观察性反馈，不能把未执行算法的候选出价当成反事实收益。
 
-设置阿里云百炼密钥，然后执行：
+护栏负责校验输出格式、非负归一化权重、整体与分段调价范围、CPA 风险以及剩余预算。模型或工具失败时会记录回退；预算耗尽后最终出价为零。原始决策、护栏后的动作、实际执行出价和反馈都有 trace。
+
+## 代码位置
+
+| 目录 | 作用 |
+|---|---|
+| `autobid_agent/` | Agent 决策循环、官方算法工具、输入输出契约、模型客户端、记忆与三个分析 skill |
+| `compat/` | 当前运行所需的官方模拟器桥接、历史 KB 查询和基线适配；保留旧 GAVE 来源代码的兼容部分，当前 Agent 不加载 GAVE 权重 |
+| `experiments/` | 竞价环境运行入口与结果汇总，独立于 Agent 核心 |
+| `cache/` | 从历史竞价轨迹生成的聚合 KB，不含原始大体量数据 |
+| `docs/` | [架构细节](docs/agent_design.md)与[独立流程图](docs/agent_architecture.mmd) |
+
+## 本地运行
+
+1. 在仓库根目录运行 `./setup_auctionnet.ps1`，取得固定版本的[官方 AuctionNet](https://github.com/alimama-tech/AuctionNet) 代码和权重。仓库固定到 `c20de631a40e24669d1d6a8e2acefd8f492f172d`；`third_party/AuctionNet/` 不上传到本仓库。
+2. 准备 Python 3.9 环境，安装官方 `third_party/AuctionNet/requirements.txt` 所需依赖及 `openai`。根据本机 CPU/CUDA 环境安装合适的 PyTorch。
+3. 设置百炼模型密钥并启动入口：
 
 ```powershell
 $env:DASHSCOPE_API_KEY = '<your-key>'
-python -m unittest discover -s tests -p test_autonomous_agent.py
-python run_autonomous_agent_48x2.py --output-dir outputs/my_48x2
+python launch.py --output-dir outputs/my_run
 ```
 
-入口固定使用 `qwen3.7-plus-2026-05-26`、seed 2026、50 万 PV、官方 beta=2 score。运行前需要账号有该模型的调用权限。LLM 决策会产生 API 费用；四个官方算法基线本地推理不调用 LLM。完整 480 次策略运行耗时且可能因 API 或网络中断；完成单元会记录在 `completed.json` 中，使用相同输出目录重启会跳过已完成单元。不要把 `outputs/` 和密钥上传。
-
-本包没有包含之前未完成的大规模实验结果，也没有把旧实验进度当作新实验的已完成结果。若代码、KB 或官方版本改变，请使用新的输出目录。详细逐步 trace、模型调用、经验卡、最终分数保存在 `outputs/my_48x2/`。
-
-## 上传到自己的 GitHub
-
-在这个目录运行 `git init`，然后创建一个空 GitHub 仓库，再运行：
-
-```powershell
-git add .
-git commit -m "Package AuctionNet four-tool bidding agent"
-git branch -M main
-git remote add origin https://github.com/leah374/<repository-name>.git
-git push -u origin main
-```
-
-请先在 GitHub 建仓库，并将 `<repository-name>` 换成实际仓库名。每次代码迭代完成、测试通过后再提交和推送；实验产物默认只留在本地。
+当前入口使用 `qwen3.7-plus-2026-05-26`，需要相应模型权限并产生 LLM 调用费用。运行内容是 48 个广告主、每人一个冷启动 Episode 和一个读取上轮经验的 Episode；每轮还运行四个官方算法以便比较。运行中断后可使用同一输出目录续跑；若代码、KB 或官方版本改变，请改用新目录。日志、逐步出价和经验卡写入 `outputs/`，默认不会进入 Git。

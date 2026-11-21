@@ -53,9 +53,10 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_ROOT = PROJECT_ROOT.parent
 GAVE_CODE_DIR = WORKSPACE_ROOT / "gave" / "code"
-FINAL_AIGB_ROOT = WORKSPACE_ROOT / "autobid_demo" / "data" / "final_aigb"
+FINAL_AIGB_ROOT = PROJECT_ROOT / "data" / "final_aigb"
 FINAL_AIGB_TRAJECTORY_CSV = FINAL_AIGB_ROOT / "trajectory" / "trajectory_data.csv"
 FINAL_AIGB_TRAFFIC_DIR = FINAL_AIGB_ROOT / "traffic"
 DEFAULT_TRAJECTORY_CSV = (
@@ -73,11 +74,10 @@ DEFAULT_TEST_CSV = (
     if (FINAL_AIGB_TRAFFIC_DIR / "period-8.csv").exists()
     else WORKSPACE_ROOT / "aigb_track_data_period_7-8" / "period-8.csv"
 )
-DEFAULT_CACHE_DIR = WORKSPACE_ROOT / "autobid_demo" / "cache"
-DEFAULT_OUTPUT_ROOT = WORKSPACE_ROOT / "autobid_demo" / "outputs"
+DEFAULT_CACHE_DIR = PROJECT_ROOT / "cache"
+DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "outputs"
 DEFAULT_FULL_GAVE_CHECKPOINT_DIR = (
-    WORKSPACE_ROOT
-    / "autobid_demo"
+    PROJECT_ROOT
     / "checkpoints"
     / "gave_full_steps300000_seed2026_20260510_202440"
 )

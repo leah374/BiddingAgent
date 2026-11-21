@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, List
 
 import numpy as np
 
-import run_auctionnet_agent_vs_gave_episode as experiment
+from compat import run_auctionnet_agent_vs_gave_episode as experiment
 from simul_bidding_env.strategy.bc_bidding_strategy import BcBiddingStrategy
 from simul_bidding_env.strategy.bcq_bidding_strategy import BcqBiddingStrategy
 from simul_bidding_env.strategy.cql_bidding_strategy import CqlBiddingStrategy
@@ -30,7 +30,7 @@ from simul_bidding_env.strategy.pid_bidding_strategy import PidBiddingStrategy
 from simul_bidding_env.strategy.td3_bc_bidding_strategy import TD3_BCBiddingStrategy
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 STRATEGIES: Dict[str, Callable[[], Any]] = {

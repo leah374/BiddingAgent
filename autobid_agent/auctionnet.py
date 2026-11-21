@@ -12,8 +12,8 @@ from . import client as _https_bootstrap
 from .contracts import TOOLS
 from .core import BiddingAgent
 from .memory import append_json, fingerprint
-import run_auctionnet_agent_vs_gave_episode as experiment
-import run_auctionnet_official_baselines as baselines
+from compat import run_auctionnet_agent_vs_gave_episode as experiment
+from compat import run_auctionnet_official_baselines as baselines
 
 
 @contextmanager

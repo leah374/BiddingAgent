@@ -14,10 +14,10 @@ import sys
 
 from autobid_agent.client import JSONClient
 from autobid_agent.memory import fingerprint, write_json
-import run_autonomous_agent_12x7 as prior
+from experiments import run_autonomous_agent_12x7 as prior
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "outputs" / "autonomous_48x2"
 EPISODES = (0, 1)
 MODEL = "qwen3.7-plus-2026-05-26"
@@ -31,9 +31,12 @@ def selected_advertisers() -> list[dict]:
 def source_manifest() -> dict:
     source_files = (sorted((ROOT / "autobid_agent").rglob("*.py")) +
                     sorted((ROOT / "autobid_agent").rglob("SKILL.md")) +
-                    [ROOT / "run_autonomous_agent_12x7.py",
-                     ROOT / "run_auctionnet_agent_vs_gave_episode.py",
-                     ROOT / "run_auctionnet_official_baselines.py"])
+                    [ROOT / "launch.py",
+                     ROOT / "experiments" / "run_autonomous_agent_12x7.py",
+                     ROOT / "experiments" / "run_autonomous_agent_smoke.py",
+                     ROOT / "compat" / "run_auctionnet_agent_vs_gave_episode.py",
+                     ROOT / "compat" / "run_auctionnet_official_baselines.py",
+                     ROOT / "compat" / "bidding_agent_demo_v2.py"])
     source_hashes = {str(path.relative_to(ROOT)): prior.experiment.sha256_file(path)
                      for path in source_files}
     environment_spec = {
@@ -160,7 +163,7 @@ def main() -> None:
         write_json(output / "last_failure.json", {
             "error": type(error).__name__ + ": " + str(error),
             "failed_at": datetime.now().astimezone().isoformat(),
-            "resume_command": f"{sys.executable} {Path(__file__).name} --output-dir {output}",
+            "resume_command": f"{sys.executable} launch.py --output-dir {output}",
         })
         progress(output, started_at)
         raise

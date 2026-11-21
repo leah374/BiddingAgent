@@ -38,7 +38,7 @@ if not hasattr(collections, "Iterable"):
     collections.Iterable = collections.abc.Iterable
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = ROOT.parent
 AUCTIONNET_ROOT = ROOT / "third_party" / "AuctionNet"
 GAVE_CODE_DIR = WORKSPACE_ROOT / "gave" / "code"
@@ -51,7 +51,7 @@ sys.path.insert(0, str(GAVE_CODE_DIR))
 sys.path.insert(0, str(AUCTIONNET_ROOT / "strategy_train_env"))
 sys.path.insert(0, str(AUCTIONNET_ROOT))
 
-import bidding_agent_demo_v2 as agentlib  # noqa: E402
+from compat import bidding_agent_demo_v2 as agentlib  # noqa: E402
 from run.run_test import adjust_over_cost, get_winner  # noqa: E402
 from simul_bidding_env.Controller.Controller import Controller  # noqa: E402
 from simul_bidding_env.strategy.base_bidding_strategy import BaseBiddingStrategy  # noqa: E402
