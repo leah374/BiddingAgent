@@ -1,0 +1,16 @@
+.conda/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/
+.idea/
+.env
+.env.*
+outputs/
+checkpoints/
+data/
+third_party/AuctionNet/
+*.zip
+cache/*
+!cache/experience_kb_v1_3fa1b08629.sqlite
